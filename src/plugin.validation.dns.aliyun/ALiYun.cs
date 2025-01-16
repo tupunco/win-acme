@@ -156,7 +156,7 @@ namespace PKISharp.WACS.Plugins.ValidationPlugins.Dns
             if (jsonDataLinq.Any()) return jsonDataLinq.First().RecordId;
             return default;
         }
-
+        
         /// <summary>
         /// Get Domain
         /// </summary>
@@ -164,12 +164,28 @@ namespace PKISharp.WACS.Plugins.ValidationPlugins.Dns
         /// <returns></returns>
         private string? GetDomain(DnsValidationRecord record)
         {
-            var detDomains = new DescribeDomainsRequest();
+            var domain = record.Authority.Domain;
+
+            string dKeyWord = null;
+            var domains = domain.Split('.');
+            if (domains.Length > 1)
+            {
+                var classDomainSets = new[] { "ac", "com", "edu", "gov", "mil", "net", "org", "biz", "info", "pro" }.ToHashSet()
+                var dIndex = domains.Length - 2; //skip Top-level domain
+                dKeyWord = domains[dIndex];
+                while (dIndex > 0 && classDomainSets.Contains(dKeyWord))
+                {
+                    dIndex--;
+                    dKeyWord = domains[dIndex];
+                }
+            }
+            
+            var detDomains = new DescribeDomainsRequest() { PageSize = 100, KeyWord = dKeyWord };
             var runtime = new RuntimeOptions();
             var data = _client.DescribeDomainsWithOptions(detDomains, runtime);
             //Console.WriteLine(data);
             var myDomains = data.Body.Domains.Domain.Select(t => t.DomainName);
-            var zone = FindBestMatch(myDomains.ToDictionary(x => x), record.Authority.Domain);
+            var zone = FindBestMatch(myDomains.ToDictionary(x => x), domain);
             if (zone != null) return zone;
             return default;
         }
